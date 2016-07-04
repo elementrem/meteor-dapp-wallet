@@ -33,10 +33,10 @@ contractVersions = [
 web3.ele.getBlock(0, function(e, res){
     if(!e){
         switch(res.hash) {
-            case '0x0cd786a2425d16f152c658316c423e6ce1181e15c3295826d7c9904cba9ce303':
+            case '0xe6ee8ac9e0f92dab6034e71e9aa1abd3a1a13010ca44010b120391a4dd7c91d1':
                 Session.set('network', 'test');
                 break;
-            case '0x8997e5369cd57a52cec568051eef2adea4932173e5335efa38706017bc7af271':
+            case '0xc7130c992fb03c628c86439f8e5d1facdbf48f3f3c115ffd99a0e3abefa1016f':
                 Session.set('network', 'main');
                 break;
             default:
