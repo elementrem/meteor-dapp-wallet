@@ -36,7 +36,7 @@ web3.ele.getBlock(0, function(e, res){
             case '0x0cd786a2425d16f152c658316c423e6ce1181e15c3295826d7c9904cba9ce303':
                 Session.set('network', 'test');
                 break;
-            case '0xe6ee8ac9e0f92dab6034e71e9aa1abd3a1a13010ca44010b120391a4dd7c91d1':
+            case '0x8997e5369cd57a52cec568051eef2adea4932173e5335efa38706017bc7af271':
                 Session.set('network', 'main');
                 break;
             default:
