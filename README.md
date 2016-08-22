@@ -6,9 +6,7 @@ The Elementrem meteor dapp wallet.
 **NOTE** 
 The wallet is not yet official released, can contain severe bugs!
 
-Meteor wallet is vulnerable to rpc attack. recommend the mist wallet.
-
-Create New Account button is supported in the mist wallet.
+Various features are provided in the mist wallet. recommend the mist wallet.
 
 
 ![](meteor-wallet-Screenshot.png)
