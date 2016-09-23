@@ -245,7 +245,7 @@ Template['views_send'].helpers({
     @method (hasTokens)
     */
     'hasTokens': function() {
-        var selectedAccount = Helpers.getAccountByAddress(TemplateVar.getFrom('.dapp-select-account', 'value')),
+        var selectedAccount = Helpers.getAccountByAddress(TemplateVar.getFrom('.dapp-select-account.send-from', 'value')),
             query = {};
 
 
@@ -355,7 +355,7 @@ Template['views_send'].helpers({
     'sendExplanation': function(){
 
         var amount = TemplateVar.get('amount') || '0',
-            selectedAccount = Helpers.getAccountByAddress(TemplateVar.getFrom('.dapp-select-account', 'value')),
+            selectedAccount = Helpers.getAccountByAddress(TemplateVar.getFrom('.dapp-select-account.send-from', 'value')),
             token = Tokens.findOne({address: TemplateVar.get('selectedToken')});
 
         if(!token || !selectedAccount)

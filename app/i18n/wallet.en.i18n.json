@@ -251,8 +251,8 @@
             "provideGas": "Provide gas",
             "transactionSent": "Transaction sent",
             "preventReplay": "Prevent transaction replay",
-            "onOtherChainSendTo": "On another elementrem folk chain, send to",
-            "replayExplanation": "Replay transactions issues happen when elementrem folk chains share peers and transactions signed in one network leak into others. If you want to control and secure the element on the other chain, create a new account with no element on it.",
+            "onOtherChainSendTo": "On another elementrem fork chain, send to",
+            "replayExplanation": "Replay transactions issues happen when elementrem fork chains share peers and transactions signed in one network leak into others. If you want to control and secure the element on the other chain, create a new account with no element on it.",
             "backToSender": "send back to sender",
             "otherAccount": "other account...",
             "error": {
