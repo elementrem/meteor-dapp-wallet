@@ -17,10 +17,22 @@ Example usage
 Template['elemens_compileContract'].onCreated(function() {
     var template = this;
 
-    // set the default
-    TemplateVar.set('value', '');
+    // set the defaults
+    TemplateVar.set('txData', '');
     TemplateVar.set('constructorInputs', []);
     TemplateVar.set('selectedType', this.data.onlyByteCode ? 'byte-code' : 'source-code');
+    TemplateVar.set('compiledContracts', JSON.parse(localStorage['compiledContracts'] || null));
+    TemplateVar.set('selectedContract', JSON.parse(localStorage['selectedContract'] || null));
+
+    // check for the splitter Contract
+    var splitContractAddress = '0x57706105ef1f188554119a6a7683af08851011a0';
+    TemplateVar.set(template, 'hasSplitter', false);
+    
+    web3.ele.getCode(splitContractAddress, function(e,c) {
+        if (!e && c.length > 2)
+            TemplateVar.set(template, 'hasSplitter', true);
+    })
+
 
     // focus the editors
     this.autorun(function(c) {
@@ -38,22 +50,81 @@ Template['elemens_compileContract'].onCreated(function() {
         }
     });
 
+
+    // re-run the compile data, to assure that remote elements are made reactive
+    var runDelayed = new Tracker.Dependency;
+
+    setTimeout(function(){
+        runDelayed.changed();
+        runDelayed = null;
+    }, 1000);
+
     // update and generate the contract data 
     this.autorun(function() {
+
+        if(runDelayed)
+            runDelayed.depend();
+        
+        // selected contract
         var selectedContract = TemplateVar.get('selectedContract');
         var constructorInputs = _.clone(TemplateVar.get('constructorInputs'));
+        var selectedToken = TemplateVar.getFrom('.select-token', 'selectedToken');
+        var mainRecipient = TemplateVar.getFrom('div.dapp-address-input input.to', 'value');
+        var replayProtectionOn = TemplateVar.get('replay-protection-checkbox');
+        var selectedType = TemplateVar.get('selectedType');
+        var textareaData = TemplateVar.getFrom('.dapp-data-textarea', 'value');
+		var txData = amount = token = '';
 
-        if(!selectedContract)
-            return;
+        if(selectedType && selectedType === 'source-code' && selectedContract){  
+            // add the default web3 sendTransaction arguments
+            constructorInputs.push({
+                data: selectedContract.bytecode
+            });
+    
+            // generate new contract code
+            // TemplateVar.set('txData', );
+            txData = web3.ele.contract(selectedContract.jsonInterface).new.getData.apply(null, constructorInputs);
+            TemplateVar.set('contract', selectedContract);
+    
+            // Save data to localstorage
+            localStorage.setItem('selectedContract', JSON.stringify(selectedContract));
+			
+			} else {
 
-        // add the default web3 sendTransaction arguments
-        constructorInputs.push({
-            data: selectedContract.bytecode
-        });
+            // Bytecode Data
+            if (replayProtectionOn){
+                // set up the splitter
+                var splitterInterface = [ { "constant": false, "inputs": [ { "name": "recipient", "type": "address" }, { "name": "altChainRecipient", "type": "address" }, { "name": "tokenAddress", "type": "address" }, { "name": "amount", "type": "uint256" } ], "name": "tokenSplit", "outputs": [ { "name": "", "type": "bool" } ], "type": "function" }, { "constant": false, "inputs": [ { "name": "recipient", "type": "address" }, { "name": "altChainRecipient", "type": "address" } ], "name": "elementSplit", "outputs": [ { "name": "", "type": "bool" } ], "type": "function" }];
+                var splitterContract = web3.ele.contract(splitterInterface).at(splitContractAddress);
+                var altRecipient = TemplateVar.get('replay-protection-to');
 
-        // generate new contract code
-        TemplateVar.set('value', web3.ele.contract(selectedContract.jsonInterface).new.getData.apply(null, constructorInputs));
-        TemplateVar.set('contract', selectedContract);
+                if (!selectedToken || selectedToken == 'element') { 
+                    // send element with replay protection       
+                    txData = splitterContract.elementSplit.getData( mainRecipient, altRecipient, {});
+                } else {
+                    // send token with replay protection
+                    amount = TemplateVar.getFrom('.amount input[name="amount"]', 'amount') || '0';
+                    token = Tokens.findOne({address: selectedToken});                
+
+                    txData = splitterContract.tokenSplit.getData( mainRecipient, altRecipient, selectedToken, amount,  {});
+                }      
+            } else {
+                if (!selectedToken || selectedToken === 'element') {
+                    // send element without replay protection        
+                    txData = (TemplateVar.get('show')) ? textareaData : '';
+                } else {
+                    // send tokens without replay protection
+                    amount = TemplateVar.getFrom('.amount input[name="amount"]', 'amount') || '0';
+                    token = Tokens.findOne({address: selectedToken});                
+                    var tokenInstance = TokenContract.at(selectedToken);
+                    txData = tokenInstance.transfer.getData( mainRecipient, amount,  {});
+                } 
+            }
+ 
+        }
+        
+        console.log('txData', txData)
+        TemplateVar.set("txData", txData); 
     });
 });
 
@@ -73,12 +144,9 @@ Template['elemens_compileContract'].onRendered(function() {
     this.aceEditor.$blockScrolling = Infinity;
     this.aceEditor.focus();
 
-    this.aceEditor.setValue("contract MyContract {\n"+
-"    /* Constructor */\n"+
-"    function MyContract() {\n"+
-" \n"+
-"    }\n"+
-"}");
+    var defaultCode = localStorage['contractSource'] || "contract MyContract {\n    /* Constructor */\n    function MyContract() {\n \n    }\n}";
+
+    this.aceEditor.setValue(defaultCode);
     this.aceEditor.selection.selectTo(0);
 
     editor = this.aceEditor;
@@ -87,10 +155,10 @@ Template['elemens_compileContract'].onRendered(function() {
     this.aceEditor.getSession().on('change', _.debounce(function(e) {
         var sourceCode = template.aceEditor.getValue();
 
+        localStorage.setItem('contractSource', sourceCode);
+
         TemplateVar.set(template, 'compiling', true);
         TemplateVar.set(template, 'compileError', false);
-        // TemplateVar.set(template, 'compiledContracts', false);
-        // TemplateVar.set(template, 'selectedContract', false);
 
         Meteor.setTimeout(function(argument) {
             web3.ele.compile.solidity(sourceCode, function(error, compiledContracts){
@@ -102,6 +170,10 @@ Template['elemens_compileContract'].onRendered(function() {
                     template.$('.abi-input').trigger('input');
                 });
 
+                // clean all error markers
+                _.each(editor.session.$backMarkers, function(i) { 
+                    editor.session.removeMarker(i.id);
+                })
 
                 if(!error) {
 
@@ -133,13 +205,30 @@ Template['elemens_compileContract'].onRendered(function() {
 
                     TemplateVar.set(template, 'selectedContract', null);
                     TemplateVar.set(template, 'compiledContracts', compiledContracts);
-                    TemplateVar.set(template, 'constructorInputs', []);
+                    localStorage.setItem('compiledContracts', JSON.stringify(compiledContracts));
+					
 
                 } else {
-                    console.log(error);
-                    // Doesnt compile in solidity either, throw error
-                    TemplateVar.set(template, 'compileError', error);
+                    // Converts error into multiple bits
+                    var errorLine = error.toString().split(':');
 
+                    if (errorLine.length < 4) {
+                        // If it can't break the error then return all
+                        TemplateVar.set(template, 'compileError', error);
+                    } else {
+                        // Finds a ^____^ pattern
+                        var foundPattern = errorLine[5].match(/(\^-*\^)/g);
+                        var errorLength = (foundPattern)? foundPattern[0].length : 0;
+
+                        // Hightlights the error
+                        var Range = ace.require('ace/range').Range;
+                        editor.session.addMarker(new Range(errorLine[2]-1, 0, errorLine[2]-1, 200), "errorMarker");
+                        editor.session.addMarker(new Range(errorLine[2]-1, errorLine[3]-1, errorLine[2]-1, Number(errorLine[3]) + errorLength), "errorMarker");
+
+                        // Doesnt compile in solidity either, throw error
+                        TemplateVar.set(template, 'compileError', errorLine[5]);  
+                    }
+                    
                     TemplateVar.set(template, 'compiledContracts', false);
                     TemplateVar.set(template, 'selectedContract', false);
                 }
@@ -165,8 +254,9 @@ Template['elemens_compileContract'].helpers({
             TemplateVar.set('selectedType', 'byte-code');
 
             Tracker.nonreactive(function(){
-                if(_.isEmpty(TemplateVar.getFrom('.dapp-data-textarea', 'value')))
+                if(_.isEmpty(TemplateVar.getFrom('.dapp-data-textarea', 'value'))) {
                     TemplateVar.set('show', false);
+				}
             });
 
         } else {
@@ -181,6 +271,20 @@ Template['elemens_compileContract'].helpers({
     'selectedContractInputs' : function(){
         selectedContract = TemplateVar.get('selectedContract');
         return selectedContract ? selectedContract.constructorInputs : [];
+    },
+    /**
+    return accounts 
+
+    @method replayAttackAccounts
+    */
+    'replayAttackList' : function() {
+        var accounts = EleAccounts.find({balance:"0"}, {sort: {name: 1}}).fetch();
+    
+        accounts = _.union(Wallets.find({balance:"0", owners: {$in: _.pluck(accounts, 'address')}, address: {$exists: true}}, {sort: {balance: 1}}).fetch(), accounts);
+        
+        accounts.unshift({address:'ban', name: TAPi18n.__('wallet.send.backToSender')});
+        accounts.push({address:'question', name: TAPi18n.__('wallet.send.otherAccount')});
+        return accounts;
     }
 });
 
@@ -200,9 +304,12 @@ Template['elemens_compileContract'].events({
     
     @event click button.hide-data
     */
-    'click button.hide-data': function(e){
+    'click button.hide-data': function(e, template){
         e.preventDefault();
-        TemplateVar.set('show', false);
+        TemplateVar.setTo('.dapp-data-textarea', 'value', '');
+        Tracker.afterFlush(function(){
+            TemplateVar.set(template, 'show', false);
+        });
     },
     /**
     Textfield switcher
@@ -218,13 +325,22 @@ Template['elemens_compileContract'].events({
     @event 'change .contract-functions
     */
     'change .compiled-contracts': function(e, template){
+        // set a contract as selected
+        var compiledContracts = TemplateVar.get('compiledContracts');
+
+        _.each(compiledContracts, function(contract){
+            contract.selected = contract.name == e.currentTarget.value;
+        })
+
         // get the correct contract
-        var selectedContract = _.find(TemplateVar.get('compiledContracts'), function(contract){
-            return contract.name == e.currentTarget.value;
+        var selectedContract = _.find(compiledContracts, function(contract){
+            return contract.selected;
         })
 
         // change the inputs and data field
         TemplateVar.set('selectedContract', selectedContract);
+        TemplateVar.set('compiledContracts', compiledContracts);
+        localStorage.setItem('compiledContracts', JSON.stringify(compiledContracts));
 
         Tracker.afterFlush(function(){
             // Run all inputs through formatter to catch bools
@@ -241,5 +357,56 @@ Template['elemens_compileContract'].events({
         var inputs = Helpers.addInputValue(selectedContract.constructorInputs, this, e.currentTarget);
 
         TemplateVar.set('constructorInputs', inputs);
+    },
+    /**
+    Change the number of signatures
+
+    @event click span[name="multisigSignatures"] .simple-modal button
+    */
+    'change select.replay-protection-to': function(e){
+        var selection = $(e.currentTarget)[0].options[$(e.currentTarget)[0].selectedIndex].value;
+
+        if (selection == 'question') {
+            TemplateVar.set('show-address-field',  true);
+        } else if (web3.isAddress(selection)){
+            TemplateVar.set('replay-protection-to',  selection);
+        }  else {
+            TemplateVar.set('replay-protection-to',  '');
+        } 
+    }, 
+    /**
+    Change the address
+
+    @event click span[name="multisigSignatures"] .simple-modal button
+    */
+    'blur input.alt-chain-recipient': function(e){
+        var value =  e.currentTarget.value;
+
+        if (value=='') {
+            TemplateVar.set('show-address-field',  false);
+            TemplateVar.set('replay-protection-to',  '');            
+        } else if (web3.isAddress(value)) {
+            TemplateVar.set('replay-protection-to', value);
+        } else {
+            TemplateVar.set('replay-protection-to', '');
+        }
+    },
+    /**
+    Check the replay protection box
+
+    @event change input[type="checkbox"].replay-protection
+    */
+    'change input[type="checkbox"].replay-protection': function(e){
+        var value = e.currentTarget.checked;
+        TemplateVar.set('replay-protection-checkbox', value);
+    },
+    /**
+    Change the data
+
+    @event change textarea.dapp-data-textarea
+    */
+    'change textarea.dapp-data-textarea': function(e){
+        var value = e.currentTarget.value;
+        TemplateVar.set('txData', value);
     }
 });
