@@ -61,6 +61,7 @@ connectToNode = function(){
 
     EleAccounts.init();
     EleBlocks.init();
+	EleTools.ticker.start({extraParams: (typeof mist !== 'undefined') ? 'Mist-'+ mist.version : ''});
 
     if (EleAccounts.find().count() > 0) {
         checkForOriginalWallet();

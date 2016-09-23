@@ -144,7 +144,6 @@ Template['elemens_compileContract'].onRendered(function() {
 					
 
                 } else {
-                    console.log(error);
                     // Converts error into multiple bits
                     var errorLine = error.toString().split(':');
 
