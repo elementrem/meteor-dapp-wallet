@@ -328,7 +328,7 @@ observeTransactions = function(){
                                     // if still not mined, remove tx
                                     if(!transaction || !transaction.blockNumber) {
 
-                                        var warningText = TAPi18n.__('wallet.transactions.error.outOfGas', {from: Helpers.getAccountNameByAddress(transaction.from), to: Helpers.getAccountNameByAddress(transaction.to)});
+                                        var warningText = TAPi18n.__('wallet.transactions.error.outOfGas', {from: Helpers.getAccountNameByAddress(tx.from), to: Helpers.getAccountNameByAddress(tx.to)});
                                         Helpers.eventLogs(warningText);
                                         GlobalNotification.warning({
                                             content: warningText,

@@ -17,8 +17,8 @@ Example usage
 Template['elemens_compileContract'].onCreated(function() {
     var template = this;
 
-    // set the default
-    TemplateVar.set('value', '');
+    // set the defaults
+    TemplateVar.set('txData', '');
     TemplateVar.set('constructorInputs', []);
     TemplateVar.set('selectedType', this.data.onlyByteCode ? 'byte-code' : 'source-code');
     TemplateVar.set('compiledContracts', JSON.parse(localStorage['compiledContracts'] || null));
@@ -73,22 +73,23 @@ Template['elemens_compileContract'].onCreated(function() {
         var replayProtectionOn = TemplateVar.get('replay-protection-checkbox');
         var selectedType = TemplateVar.get('selectedType');
         var textareaData = TemplateVar.getFrom('.dapp-data-textarea', 'value');
+		var txData = amount = token = '';
 
-        if(selectedType === 'source-code' && selectedContract){        
-                // add the default web3 sendTransaction arguments
-                constructorInputs.push({
-                    data: selectedContract.bytecode
-                });
-        
-                // generate new contract code
-                TemplateVar.set('value', web3.ele.contract(selectedContract.jsonInterface).new.getData.apply(null, constructorInputs));
-                TemplateVar.set('contract', selectedContract);
-        
-                // Save data to localstorage
-                localStorage.setItem('selectedContract', JSON.stringify(selectedContract));
-        
-        } else {
-            var sendData = amount = token = '';
+        if(selectedType && selectedType === 'source-code' && selectedContract){  
+            // add the default web3 sendTransaction arguments
+            constructorInputs.push({
+                data: selectedContract.bytecode
+            });
+    
+            // generate new contract code
+            // TemplateVar.set('txData', );
+            txData = web3.ele.contract(selectedContract.jsonInterface).new.getData.apply(null, constructorInputs);
+            TemplateVar.set('contract', selectedContract);
+    
+            // Save data to localstorage
+            localStorage.setItem('selectedContract', JSON.stringify(selectedContract));
+			
+			} else {
 
             // Bytecode Data
             if (replayProtectionOn){
@@ -99,29 +100,31 @@ Template['elemens_compileContract'].onCreated(function() {
 
                 if (!selectedToken || selectedToken == 'element') { 
                     // send element with replay protection       
-                    sendData = splitterContract.elementSplit.getData( mainRecipient, altRecipient, {});
+                    txData = splitterContract.elementSplit.getData( mainRecipient, altRecipient, {});
                 } else {
                     // send token with replay protection
                     amount = TemplateVar.getFrom('.amount input[name="amount"]', 'amount') || '0';
                     token = Tokens.findOne({address: selectedToken});                
 
-                    sendData = splitterContract.tokenSplit.getData( mainRecipient, altRecipient, selectedToken, amount,  {});
+                    txData = splitterContract.tokenSplit.getData( mainRecipient, altRecipient, selectedToken, amount,  {});
                 }      
             } else {
                 if (!selectedToken || selectedToken === 'element') {
                     // send element without replay protection        
-                    sendData = (TemplateVar.get('show')) ? textareaData : '';
+                    txData = (TemplateVar.get('show')) ? textareaData : '';
                 } else {
                     // send tokens without replay protection
                     amount = TemplateVar.getFrom('.amount input[name="amount"]', 'amount') || '0';
                     token = Tokens.findOne({address: selectedToken});                
                     var tokenInstance = TokenContract.at(selectedToken);
-                    sendData = tokenInstance.transfer.getData( mainRecipient, amount,  {});
+                    txData = tokenInstance.transfer.getData( mainRecipient, amount,  {});
                 } 
             }
-            TemplateVar.set("value", sendData);   
+ 
         }
-
+        
+        console.log('txData', txData)
+        TemplateVar.set("txData", txData); 
     });
 });
 
@@ -270,14 +273,6 @@ Template['elemens_compileContract'].helpers({
         return selectedContract ? selectedContract.constructorInputs : [];
     },
     /**
-    List options on the replay attack selector
-
-    @method (replayAttackOptions)
-    */
-    'replayAttackOptions' : function(){
-        return [{value:"foo", text:"prevent it from being accepted"},{value:"bar", text:"send to this address:"}];
-    },
-    /**
     return accounts 
 
     @method replayAttackAccounts
@@ -412,6 +407,6 @@ Template['elemens_compileContract'].events({
     */
     'change textarea.dapp-data-textarea': function(e){
         var value = e.currentTarget.value;
-        TemplateVar.set('value', value);
+        TemplateVar.set('txData', value);
     }
 });
