@@ -1,3 +1,7 @@
 <template name="elemens_selectableUnit">
-    {{> InlineForm name="unit" items=units value=selectedUnit}}
+    {{#if selectable}}
+        {{> InlineForm name="unit" items=units value=selectedUnit}}
+    {{else}}
+        <span title="This is testnet element, no real market value">ELEMENT*</span>
+    {{/if}}
 </template>
