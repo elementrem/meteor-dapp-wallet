@@ -25,11 +25,11 @@ Template['elemens_balance'].helpers({
     */
     'convertedBalance': function(){
         var balance = TemplateVar.get('balance');
-
+        
         if (EleTools.getUnit() === 'noelement') return 'infinite';
 
         if(balance){
-            if(EleTools.getUnit() === 'usd' || EleTools.getUnit() === 'eur' || EleTools.getUnit() === 'gbp' || EleTools.getUnit() === 'brl')
+            if(EleTools.getUnit() === 'usd' || EleTools.getUnit() === 'eur')
                 return EleTools.formatBalance(TemplateVar.get('balance'), '0,0.00');
             else if(EleTools.getUnit() === 'element')
                 return EleTools.formatBalance(TemplateVar.get('balance'), (this.showAllDecimals? '0,0.00[0000000000000000]' : '0,0.00') );

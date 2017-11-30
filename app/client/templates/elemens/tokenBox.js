@@ -50,7 +50,7 @@ Template['elemens_tokenBox'].events({
         e.stopImmediatePropagation();
 
         EleElemens.Modal.question({
-            text: new Spacebars.SafeString(TAPi18n.__('wallet.tokens.deleteToken', {token: token.name})), // could be vulnerable as token name is not HTML purified
+            text: new Spacebars.SafeString(TAPi18n.__('wallet.tokens.deleteToken', {token: token.name})),
             ok: function(){
                 Tokens.remove(token._id);
             },
