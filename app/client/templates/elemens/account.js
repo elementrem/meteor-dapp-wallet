@@ -93,7 +93,12 @@ Template['elemens_account'].helpers({
     @method (creating)
     */
     'creating': function(){
-        return (!this.address || this.imported || (blocksForConfirmation >= EleBlocks.latest.number - (this.creationBlock - 1) && EleBlocks.latest.number - (this.creationBlock - 1) >= 0));
+        var noAddress = !this.address;
+        var isImported = this.imported;
+        var belowReorgThreshold = (blocksForConfirmation >= EleBlocks.latest.number - (this.creationBlock - 1));
+        var blockNumberCheck = EleBlocks.latest.number - (this.creationBlock - 1) >= 0;
+
+        return (noAddress || isImported || (belowReorgThreshold && blockNumberCheck));
     },
     /**
     Returns the confirmations
@@ -118,13 +123,27 @@ Template['elemens_account'].helpers({
                 percent: (confirmations / (blocksForConfirmation)) * 100
             }
             : false;
+    },
+    /**
+    Displays ENS names with triangles
+    @method (nameDisplay)
+    */
+    'displayName': function(){
+        return this.ens ? this.name.split('.').slice(0, -1).reverse().join(' ▸ ') : this.name;
+    },
+    /**
+    Adds class about ens
+    @method (ensClass)
+    */
+    'ensClass': function(){
+        return this.ens ?  'ens-name' : 'not-ens-name';
     }
 });
 
 Template['elemens_account'].events({
     /**
     Field test the speed wallet is rendered
-    
+
     @event click button.show-data
     */
     'click .wallet-box': function(e){
