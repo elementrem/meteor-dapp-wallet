@@ -25,11 +25,13 @@ Template['layout_header'].helpers({
     */
     'goToSend': function() {
         FlowRouter.watchPathChange();
-        var address = web3.toChecksumAddress(FlowRouter.getParam('address'));
-            
+        var address = web3.toChecksumAddress(FlowRouter.getParam('address'));  
+        var accounts = EleAccounts.find({}).fetch();
+
+        // For some reason the path /send/ doesn't show tokens anymore
         return (address)
             ? FlowRouter.path('sendFrom', {from: address})
-            : FlowRouter.path('send');
+            : FlowRouter.path('sendFrom', {from: accounts[0] ? accounts[0].address : null });
     },
     /**
     Calculates the total balance of all accounts + wallets.
@@ -43,10 +45,7 @@ Template['layout_header'].helpers({
 
         var balance = _.reduce(_.pluck(_.union(accounts, wallets), 'balance'), function(memo, num){ return memo + Number(num); }, 0);
 
-        // set total balance in Mist menu, of no pending confirmation is Present
-        if(typeof mist !== 'undefined' && !PendingConfirmations.findOne({operation: {$exists: true}})) {
-            mist.menu.setBadge(EleTools.formatBalance(balance, '0.00 a','element') + ' ELE');
-        }
+        updateMistBadge();
 
         return balance;
     },

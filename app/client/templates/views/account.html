@@ -11,8 +11,8 @@
                     {{/if}}
                 {{else}}
                     {{> dapp_identicon identity=address}}
-                    <h1>
-                        <span class="edit-name">{{name}}</span> <i class="edit-icon icon-pencil"></i>
+                    <h1 class="{{ensClass}}">
+                        <span>{{displayName}}</span> 
 
                         {{#if $or owners jsonInterface}}
                             <button class="dapp-icon-button delete icon-trash"></button>
@@ -24,12 +24,14 @@
 
             <div class="accounts-page-summary">
                 {{> dapp_identicon identity=address}}
-                <header>
+                <header class="{{ensClass}}">
                     <h1>
-                        <span class="edit-name">{{name}}</span> <i class="edit-icon icon-pencil"></i>
-                        {{#if $or owners jsonInterface}}
-                            <button class="dapp-icon-button delete icon-trash"></button>
-                        {{/if}}
+                        {{#if ens}}
+                        <span>{{displayName}}</span> 
+                        {{else}}
+                        <em class="edit-name">{{displayName}}</em> 
+                        <i class="edit-icon icon-pencil"></i>
+                        {{/if}}                        
                     </h1>
                     <h2 class="copyable-address">{{walletIcon}}
                         <!-- <input type="text" value="{{toChecksumAddress address}}" readonly class=""> -->
@@ -108,6 +110,7 @@
                     <div class="account-info">
                         <h3>{{i18n "wallet.app.texts.note"}}</h3>
                         <p>{{{i18n "wallet.accounts.accountNote"}}}</p>
+                        <p><strong>{{i18n "wallet.accounts.outOfSyncNote"}}</strong></p>
                     </div>
                 {{/if}}
 
@@ -126,13 +129,31 @@
 <!--
                         {{#if $eq ($.Session.get "network") "main"}}
                             <li>
-                                <a href="https://shapeshift.io/shifty.html?destination={{address}}&amp;output=ELE&amp;apiKey=ef8312d8c9b9dda64fb852e8683eac6c33123f8743ff11383fb3bab29a364c01c27343fced4e628db8d5d66d763565763f8699c0fc903ec23db31cb908a944c8" target="_popup" data-popup-width="" data-popup-height="">
+                                <a href="https://shapeshift.io/shifty.html?destination={{address}}&amp;output=ETH&amp;apiKey=ef8312d8c9b9dda64fb852e8683eac6c33123f8743ff11383fb3bab29a364c01c27343fced4e628db8d5d66d763565763f8699c0fc903ec23db31cb908a944c8" target="_popup" data-popup-width="" data-popup-height="">
                                     <i class="icon-bitcoin"></i>
                                     {{i18n "wallet.accounts.buttons.depositBitcoin"}}
                                 </a>
                             </li>  
                         {{/if}}
 -->
+                        {{#if $eq ($.Session.get "network") "main"}}
+                            <li>
+                                <button class="deposit-using-coinbase">
+                                    <i class="icon-credit-card"></i>
+                                    {{i18n "wallet.accounts.buttons.depositUsingCreditCard"}}
+                                </button>
+                            </li>  
+                        {{/if}}
+
+                        {{#if $eq ($.Session.get "network") "main"}}
+                        <li>
+                            <a href="https://elementrem.net/address/{{address}}">
+                                <i class="icon-info"></i>
+                                {{i18n "wallet.accounts.buttons.viewOnExplorer"}}
+                            </a>
+                        </li>                        
+                        {{/if}}
+
                         <li>
                             <button class="copy-to-clipboard-button">
                                 <i class="icon-docs"></i>
@@ -184,7 +205,6 @@
                     
                     <div>
                         <input type="checkbox" id="watch-events-checkbox" class="toggle-watch-events" checked="{{TemplateVar.get 'watchEvents'}}">
-
                         <label for="watch-events-checkbox">{{i18n "wallet.contracts.buttons.watchContractEvents"}}</label>
                     </div>
 

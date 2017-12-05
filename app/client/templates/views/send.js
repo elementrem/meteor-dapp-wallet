@@ -19,7 +19,8 @@ when the user actually wants to send the dummy data.
 
 @property defaultEstimateGas
 */
-var defaultEstimateGas = 5000000;
+var defaultEstimateGas = 50000000;
+
 
 /**
 Check if the amount accounts daily limit  and sets the correct text.
@@ -51,7 +52,22 @@ var getDataField = function(){
     // make reactive to the show/hide of the textarea
     TemplateVar.getFrom('.compile-contract','byteTextareaShown');
 
-	return TemplateVar.getFrom('.compile-contract', 'txData');
+
+
+    // send tokens
+    var selectedToken = TemplateVar.get('selectedToken');
+
+    if(selectedToken && selectedToken !== 'element') {
+        var mainRecipient = TemplateVar.getFrom('div.dapp-address-input input.to', 'value');
+        var amount = TemplateVar.get('amount') || '0';
+        var token = Tokens.findOne({address: selectedToken});
+        var tokenInstance = TokenContract.at(selectedToken);
+        var txData = tokenInstance.transfer.getData( mainRecipient, amount,  {});
+
+        return txData;
+    }
+
+    return TemplateVar.getFrom('.compile-contract', 'txData');
 };
 
 
@@ -83,10 +99,19 @@ Template['views_send'].onCreated(function(){
 
     // SET THE DEFAULT VARIABLES
     TemplateVar.set('amount', '0');
-    TemplateVar.set('estimatedGas', 0);
+    TemplateVar.set('estimatedGas', 300000);
     TemplateVar.set('sendAll', false);
-	TemplateVar.set(template, 'tokenApprovalStatus', 'notSent');
 
+    // Deploy contract
+    if(FlowRouter.getRouteName() === 'deployContract') {
+        TemplateVar.set('selectedAction', 'deploy-contract');
+        TemplateVar.set('selectedToken', 'element');
+
+    // Send funds
+    } else {
+        TemplateVar.set('selectedAction', 'send-funds');
+        TemplateVar.set('selectedToken', FlowRouter.getParam('token') || 'element');
+    }
 
     // check if we are still on the correct chain
     Helpers.checkChain(function(error) {
@@ -101,8 +126,9 @@ Template['views_send'].onCreated(function(){
         var address = TemplateVar.getFrom('.dapp-select-account.send-from', 'value'),
             amount = TemplateVar.get('amount') || '0';
 
-        if(!c.firstRun)
+        if(!c.firstRun) {
             checkOverDailyLimit(address, amount, template);
+        }
     });
 
     // change the amount when the currency unit is changed
@@ -113,6 +139,7 @@ Template['views_send'].onCreated(function(){
             TemplateVar.set('amount', EleTools.toMey(template.find('input[name="amount"]').value.replace(',','.'), unit));
         }
     });
+
 });
 
 
@@ -123,8 +150,7 @@ Template['views_send'].onRendered(function(){
     // focus address input field
     if(FlowRouter.getParam('address')) {
         this.find('input[name="to"]').value = FlowRouter.getParam('address');
-        this.$('input[name="to"]').trigger('change');
-
+        this.$('input[name="to"]').trigger('input');
     } else if(!this.data){
         this.$('input[name="to"]').focus();
     }
@@ -134,6 +160,34 @@ Template['views_send'].onRendered(function(){
     if(from)
         TemplateVar.setTo('select[name="dapp-select-account"].send-from', 'value', FlowRouter.getParam('from').toLowerCase());
 
+
+    // initialize send view correctly when directly switching from deploy view
+    template.autorun(function(c){
+        if(FlowRouter.getRouteName() === 'send') {
+            TemplateVar.set('selectedAction', 'send');
+            TemplateVar.setTo('.dapp-data-textarea', 'value', '');
+        }
+    });
+
+
+    // change the token type when the account is changed
+    var selectedAddress;
+    template.autorun(function(c){
+
+        address = TemplateVar.getFrom('.dapp-select-account.send-from', 'value');
+        
+        if (c.firstRun) {
+            selectedAddress = address;
+            return;
+        };
+
+
+        if (selectedAddress !== address) {
+            TemplateVar.set('selectedToken', 'element');
+        }
+
+        selectedAddress = address;
+    });
 
     // ->> GAS PRICE ESTIMATION
     template.autorun(function(c){
@@ -146,8 +200,6 @@ Template['views_send'].onRendered(function(){
         if(_.isString(address))
             address = address.toLowerCase();
 
-
-		
 
         // Element tx estimation
         if(tokenAddress === 'element') {
@@ -184,24 +236,6 @@ Template['views_send'].onRendered(function(){
 
 
 Template['views_send'].helpers({
-    /**
-    React on the template data context
-
-    @method (reactiveData)
-    */
-    'reactiveData': function(deployContract){
-
-        // Deploy contract
-        if(this && this.deployContract) {
-            TemplateVar.set('selectedAction', 'deploy-contract');
-            TemplateVar.set('selectedToken', 'element');
-            
-        // Send funds
-        } else {
-            TemplateVar.set('selectedAction', 'send-funds');
-            TemplateVar.set('selectedToken', FlowRouter.getParam('token') || 'element');
-        }
-    },
     /**
     Get the current selected account
 
@@ -250,8 +284,8 @@ Template['views_send'].helpers({
         if(!selectedAccount)
             return;
 
-        query['balances.'+ selectedAccount._id] = {$exists: true, $ne: '0'};   
-     
+        query['balances.'+ selectedAccount._id] = {$exists: true, $ne: '0'};
+
         return (TemplateVar.get('selectedAction') === 'send-funds' && !!Tokens.findOne(query, {field: {_id: 1}}));
     },
     /**
@@ -314,7 +348,7 @@ Template['views_send'].helpers({
             // deduct fee if account, for contracts use full amount
             amount = (selectedAccount.owners)
                 ? selectedAccount.balance
-                : new BigNumber(selectedAccount.balance, 10).minus(new BigNumber(gasInMey, 10)).toString(10);
+                : BigNumber.max(0, new BigNumber(selectedAccount.balance, 10).minus(new BigNumber(gasInMey, 10))).toString(10);
         } else {
             var token = Tokens.findOne({address: TemplateVar.get('selectedToken')});
 
@@ -363,8 +397,8 @@ Template['views_send'].helpers({
             amount: Helpers.formatNumberByDecimals(amount, token.decimals),
             name: token.name,
             symbol: token.symbol
-        })); 
-        
+        }));
+
     },
     /**
     Get Balance of a token
@@ -398,18 +432,6 @@ Template['views_send'].helpers({
             : amount;
 
         return amount.replace(/ /g,'');
-    },
-    /**
-    Needs token approval
-
-    @method (requiresTokenApproval)
-    */
-    'requiresTokenApproval': function(){
-        
-        var replayProtection = TemplateVar.getFrom('.compile-contract', 'replay-protection-checkbox');
-        var tokenAddress = TemplateVar.get('selectedToken');
-
-        return tokenAddress != 'element' && replayProtection;
     }
 });
 
@@ -417,7 +439,7 @@ Template['views_send'].helpers({
 Template['views_send'].events({
     /**
     Send all funds
-    
+
     @event change input.send-all
     */
     'change input.send-all': function(e){
@@ -425,8 +447,8 @@ Template['views_send'].events({
         TemplateVar.set('amount', 0);
     },
     /**
-    Select a token 
-    
+    Select a token
+
     @event click .token-element
     */
     'click .token-element': function(e, template){
@@ -436,109 +458,23 @@ Template['views_send'].events({
         template.$('input[name="amount"]').trigger('change');
     },
     /**
-    Select a token 
-    @event click .token-element
-    */
-    'click .approve-token-transfer': function(e, template){
+    Select a token
 
-        e.preventDefault();
-
-        var amount = TemplateVar.get('amount') || '0',
-            tokenAddress = TemplateVar.get('selectedToken'),
-            gasPrice = TemplateVar.getFrom('.dapp-select-gas-price', 'gasPrice'),
-            estimatedGas = 130000,
-            selectedAccount = Helpers.getAccountByAddress(template.find('select[name="dapp-select-account"].send-from').value);
-
-        var splitContractAddress = '0x1ca4a86bba124426507d1ef67ad271cc5a02820a';
-
-        var tokenInstance = TokenContract.at(tokenAddress);
-        
-        TemplateVar.set(template, 'tokenApprovalStatus', 'approving');
-
-        var data = tokenInstance.approve.getData(splitContractAddress, amount, {});
-
-        if(typeof contracts['ct_'+ selectedAccount._id] == 'undefined'){            
-            // If it's from a simple account
-            tokenInstance.approve.sendTransaction(splitContractAddress, amount, {
-                from: selectedAccount.address,
-                gasPrice: gasPrice,
-                gas: estimatedGas
-                }, 
-                function(error, txHash){
-
-                    if(!error) {
-                        console.log('Approved', txHash);
-                        TemplateVar.set(template, 'tokenApprovalStatus', 'approved');
-
-
-                        addTransactionAfterSend(txHash, 0, selectedAccount.address, tokenAddress, gasPrice, estimatedGas, data);
-
-                        GlobalNotification.success({
-                           content: 'i18n:wallet.send.transactionSent',
-                           duration: 2
-                        });
-                    } else {
-
-                        TemplateVar.set(template, 'tokenApprovalStatus', 'notSent');
-
-                        GlobalNotification.error({
-                            content: error.message,
-                            duration: 8
-                        });
-                }
-            })
-        } else {
-            // If it's from a contract
-            contracts['ct_'+ selectedAccount._id].execute.sendTransaction(tokenAddress, 0, data, {
-                from: Helpers.getOwnedAccountFrom(selectedAccount.owners),
-                gasPrice: gasPrice,
-                gas: estimatedGas
-                }, 
-                function(error, txHash){
-
-                    if(!error) {
-                        console.log('Approved', txHash);
-                        TemplateVar.set(template, 'tokenApprovalStatus', 'approved');
-
-
-                        addTransactionAfterSend(txHash, 0, selectedAccount.address, tokenAddress, gasPrice,  estimatedGas, data);
-
-                        GlobalNotification.success({
-                           content: 'i18n:wallet.send.transactionSent',
-                           duration: 2
-                        });
-                    } else {
-
-                        TemplateVar.set(template, 'tokenApprovalStatus', 'notSent');
-
-                        GlobalNotification.error({
-                            content: error.message,
-                            duration: 8
-                        });
-                }
-            })
-
-        }        
-
-    },
-    /**
-    Select a token 
-    	 
     @event click .select-token
     */
     'click .select-token input': function(e, template){
         var value = e.currentTarget.value;
         TemplateVar.set('selectedToken', value);
 
-        if (value === 'element')    
-            TemplateVar.setTo('.dapp-data-textarea', 'value', ''); 
+        if (value === 'element')
+            TemplateVar.setTo('.dapp-data-textarea', 'value', '');
 
         // trigger amount box change
         template.$('input[name="amount"]').trigger('change');
     },
     /**
     Set the amount while typing
-    
+
     @event keyup input[name="amount"], change input[name="amount"], input input[name="amount"]
     */
     'keyup input[name="amount"], change input[name="amount"], input input[name="amount"]': function(e, template){
@@ -549,10 +485,10 @@ Template['views_send'].events({
             TemplateVar.set('amount', mey || '0');
 
             checkOverDailyLimit(template.find('select[name="dapp-select-account"].send-from').value, mey, template);
-        
+
         // token
         } else {
-            
+
             var token = Tokens.findOne({address: TemplateVar.get('selectedToken')}),
                 amount = e.currentTarget.value || '0';
 
@@ -563,7 +499,7 @@ Template['views_send'].events({
     },
     /**
     Submit the form and send the transaction!
-    
+
     @event submit form
     */
     'submit form': function(e, template){
@@ -574,18 +510,17 @@ Template['views_send'].events({
             gasPrice = TemplateVar.getFrom('.dapp-select-gas-price', 'gasPrice'),
             estimatedGas = TemplateVar.get('estimatedGas'),
             selectedAccount = Helpers.getAccountByAddress(template.find('select[name="dapp-select-account"].send-from').value),
-            replayTransaction = (template.find('input.replay-protection')) ? 
-                template.find('input.replay-protection').checked : null,
             selectedAction = TemplateVar.get("selectedAction"),
             data = getDataField(),
             contract = TemplateVar.getFrom('.compile-contract', 'contract'),
             sendAll = TemplateVar.get('sendAll');
 
+
         if(selectedAccount && !TemplateVar.get('sending')) {
 
             // set gas down to 21 000, if its invalid data, to prevent high gas usage.
             if(estimatedGas === defaultEstimateGas || estimatedGas === 0)
-                estimatedGas = 21000;
+                estimatedGas = 22000;
 
             // if its a wallet contract and tokens, don't need to remove the gas addition on send-all, as the owner pays
             if(sendAll && (selectedAccount.owners || tokenAddress !== 'element'))
@@ -606,16 +541,14 @@ Template['views_send'].events({
                     duration: 2
                 });
 
-
             if(!web3.isAddress(to) && !data)
                 return GlobalNotification.warning({
                     content: 'i18n:wallet.send.error.noReceiver',
                     duration: 2
                 });
 
-
             if(tokenAddress === 'element') {
-                
+
                 if((_.isEmpty(amount) || amount === '0' || !_.isFinite(amount)) && !data)
                     return GlobalNotification.warning({
                         content: 'i18n:wallet.send.error.noAmount',
@@ -628,7 +561,15 @@ Template['views_send'].events({
                         duration: 2
                     });
 
-            } else {
+            } else { // Token transfer
+
+                if(!to) {
+                    return GlobalNotification.warning({
+                        content: 'i18n:wallet.send.error.noReceiver',
+                        duration: 2
+                    });
+                }
+
                 // Change recipient and amount
                 to = tokenAddress;
                 amount = 0;
@@ -642,41 +583,20 @@ Template['views_send'].events({
                         duration: 2
                     });
             }
-            // Use replay protection contract
-            if (replayTransaction) {
-                var splitContractAddress = '0x1ca4a86bba124426507d1ef67ad271cc5a02820a';
 
-                if (data)
-                    to = splitContractAddress;
-
-                var altChainRecipient = template.find('select[name="dapp-select-account"].replay-protection-to') ? 
-                    template.find('select[name="dapp-select-account"].replay-protection-to').value : 
-                    template.find('input.alt-chain-recipient').value;
-
-                if (altChainRecipient == 'ban') {                    
-                    altChainRecipient = '';
-                } else if (altChainRecipient != '' && !web3.isAddress(altChainRecipient)) {
-                    return GlobalNotification.warning({
-                        content: 'i18n:wallet.contracts.error.invalidAddress',
-                        duration: 2
-                    });
-                }
-
-			}
-			
             // The function to send the transaction
             var sendTransaction = function(estimatedGas){
 
                 // show loading
                 TemplateVar.set(template, 'sending', true);
 
-
                 // use gas set in the input field
                 estimatedGas = estimatedGas || Number($('.send-transaction-info input.gas').val());
                 console.log('Finally choosen gas', estimatedGas);
+
                 // CONTRACT TX
                 if(contracts['ct_'+ selectedAccount._id]) {
-                
+
                     contracts['ct_'+ selectedAccount._id].execute.sendTransaction(to || '', amount || '', data || '', {
                         from: Helpers.getOwnedAccountFrom(selectedAccount.owners),
                         gasPrice: gasPrice,
@@ -692,10 +612,10 @@ Template['views_send'].events({
                             data = (!to && contract)
                                 ? {contract: contract, data: data}
                                 : data;
-								
+
                             addTransactionAfterSend(txHash, amount, selectedAccount.address, to, gasPrice, estimatedGas, data);
 
-                            localStorage.setItem('contractSource', 'contract MyContract {\n    /* Constructor */\n    function MyContract() {\n \n    }\n}');
+                            localStorage.setItem('contractSource', Helpers.getDefaultContractExample());
                             localStorage.setItem('compiledContracts', null);
                             localStorage.setItem('selectedContract', null);
 
@@ -710,10 +630,10 @@ Template['views_send'].events({
                             });
                         }
                     });
-                
+
                 // SIMPLE TX
                 } else {
-                    
+
                     console.log('Gas Price: '+ gasPrice);
                     console.log('Amount:', amount);
 
@@ -737,22 +657,22 @@ Template['views_send'].events({
                                 : data;
 
                             addTransactionAfterSend(txHash, amount, selectedAccount.address, to, gasPrice, estimatedGas, data);
-                            
-                            localStorage.setItem('contractSource', 'contract MyContract {\n    /* Constructor */\n    function MyContract() {\n \n    }\n}');
+
+                            localStorage.setItem('contractSource', Helpers.getDefaultContractExample());
                             localStorage.setItem('compiledContracts', null);
                             localStorage.setItem('selectedContract', null);
 
                             FlowRouter.go('dashboard');
                         } else {
 
-                            // EleElements.Modal.hide();
+                            // EleElemens.Modal.hide();
 
                             GlobalNotification.error({
                                 content: error.message,
                                 duration: 8
                             });
                         }
-                    });    
+                    });
                 }
             };
 
@@ -760,7 +680,7 @@ Template['views_send'].events({
             if(typeof mist === 'undefined') {
 
                 console.log('estimatedGas: ' + estimatedGas);
-                
+
                 EleElemens.Modal.question({
                     template: 'views_modals_sendTransactionInfo',
                     data: {
@@ -785,5 +705,3 @@ Template['views_send'].events({
         }
     }
 });
-
-

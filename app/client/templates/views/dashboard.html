@@ -42,7 +42,7 @@
                 </p>
             {{else}}
                 <p>
-                    {{{i18n "wallet.accounts.walletsDescriptionNotEnoughFunds"}}}             
+                    {{{i18n "wallet.accounts.walletsDescriptionNotEnoughFunds"}}}
                 </p>           
             {{/if}}
 
@@ -50,9 +50,6 @@
 
             <div class="wallet-box-list">
             {{#each wallets}}
-                {{> elemens_account account=_id wallets=true}}
-            {{/each}}
-            {{#each (wallets true)}}
                 {{> elemens_account account=_id wallets=true}}
             {{/each}}
             </div>

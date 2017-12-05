@@ -21,12 +21,15 @@ Meteor.startup(function() {
         if(_.isString(TAPi18n.getLanguage())) {
             var lang = TAPi18n.getLanguage().substr(0,2);
             moment.locale(lang);
-            numeral.language(lang);
+            try {
+                numeral.language(lang);
+            } catch (err) {
+                console.warn('numeral.js couldn\'t set number formating: ', err.message);
+            }
             EleTools.setLocale(lang);
         }
 
         // If on the mainnet, this will add the unicorn token by default, only once.
-/**
         if (!localStorage['dapp_hasUnicornToken'] && Session.get('network') === 'main'){
             localStorage.setItem('dapp_hasUnicornToken', true);
 
@@ -37,13 +40,12 @@ Meteor.startup(function() {
                 Tokens.upsert(tokenId, {$set: {
                     address: unicornToken,
                     name: 'Unicorns',
-                    symbol: '??',
+                    symbol: '🦄',
                     balances: {},
                     decimals: 0
-                }});    
+                }});
             }, 5000);
         }
-*/
     });
 
 
