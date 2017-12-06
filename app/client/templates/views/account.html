@@ -135,7 +135,7 @@
                                 </a>
                             </li>  
                         {{/if}}
--->
+
                         {{#if $eq ($.Session.get "network") "main"}}
                             <li>
                                 <button class="deposit-using-coinbase">
@@ -144,10 +144,10 @@
                                 </button>
                             </li>  
                         {{/if}}
-
+-->
                         {{#if $eq ($.Session.get "network") "main"}}
                         <li>
-                            <a href="https://elementrem.net/address/{{address}}">
+                            <a href="https://elementrem.net/addr/{{address}}">
                                 <i class="icon-info"></i>
                                 {{i18n "wallet.accounts.buttons.viewOnExplorer"}}
                             </a>

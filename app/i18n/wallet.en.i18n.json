@@ -315,7 +315,7 @@
             "writeToContract": "Write to contract",
             "pickContract": "Pick a contract",
             "pickFunction": "Pick a function",
-            "noContract": "<p>Put the source of the contract you want here. You can find many examples of contracts at the <a href=\"http://elementrem.org\" target=\"_blank\">elementrem.org</a>: </p> <ul><li><a href=\"http://elementrem.org/token#the-code\" target=\"_blank\">Build a token</a></li><li><a href=\"http://elementrem.org/crowdsale#the-code\" target=\"_blank\">Start a crowdsale</a></li><li><a href=\"http://elementrem.org/dao#the-code\" target=\"_blank\">Create a blockchain organization</a></li></ul>",
+            "noContract": "<p>Put the source of the contract you want here. You can find examples of contracts at the</a>: </p> <ul><li><a href=\"https://github.com/elementrem/smartcontract-example\" target=\"_blank\">Elementrem SmartContracts eg Github.</a>",
             "buttons": {
                 "showContractInfo": "Show contract info",
                 "hideContractInfo": "Hide contract info",
