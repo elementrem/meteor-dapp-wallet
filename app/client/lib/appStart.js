@@ -3,6 +3,16 @@ if(location.hostname !== 'localhost' && location.hostname !== '127.0.0.1')
     Meteor.disconnect();
 
 
+// Make sure the example contract code is up to date
+var contractSource = localStorage.getItem('contractSource');
+
+if (contractSource  // repopulate placeholder contract if:
+    && (contractSource === ""  // source is empty or
+    || (contractSource.indexOf(Helpers.getDefaultContractExample(true)) !== -1)  // default 'MyContract' exists and
+    && contractSource.split('contract ').length-1 === 1)) {  // 'MyContract' is the only contract
+    localStorage.setItem('contractSource', Helpers.getDefaultContractExample());
+}
+ 
 
 Meteor.Spinner.options = {
     lines: 17, // The number of lines to draw
@@ -68,8 +78,11 @@ var connect = function(){
 
         // only start app operation, when the node is not syncing (or the ele_syncing property doesn't exists)
         web3.ele.getSyncing(function(e, sync) {
-            if(e || !sync)
+            if(e || !sync) {
                 connectToNode();
+            } else {
+                EleAccounts.init();
+            }
         });
 
     } else {

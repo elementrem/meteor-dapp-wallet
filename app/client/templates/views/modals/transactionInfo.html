@@ -3,15 +3,17 @@
         <h1>
             {{i18n "wallet.transactions.transactionInfoTitle"}}
             {{#if $eq ($.Session.get "network") "main"}} 
-                <a href="http://www.elementrem.net/#/transaction/{{transactionHash}}" target="_blank" style="font-size: 0.4em;">{{transactionHash}}</a>
+                <a href="http://elementrem.net/tx/{{transactionHash}}" target="_blank" style="font-size: 0.4em;">{{transactionHash}}</a>
             {{else}}
-<!--
-                {{#if $eq ($.Session.get "network") "test"}}
-                    <a href="http:// /{{transactionHash}}" target="_blank" style="font-size: 0.4em;">{{transactionHash}}</a>
+                {{#if $eq ($.Session.get "network") "rinkeby"}}
+                    <a href="http://elementrem.net/tx/{{transactionHash}}" target="_blank" style="font-size: 0.4em;">{{transactionHash}}</a>
                 {{else}}
-                    <span style="font-size: 0.4em;">{{transactionHash}}</span>
+                    {{#if $eq ($.Session.get "network") "ropsten"}}
+                        <a href="http://elementrem.net/tx/{{transactionHash}}" target="_blank" style="font-size: 0.4em;">{{transactionHash}}</a>
+                    {{else}}
+                        <span style="font-size: 0.4em;">{{transactionHash}}</span>
+                    {{/if}}
                 {{/if}}
--->
             {{/if}}
 
         </h1>
@@ -40,10 +42,10 @@
                             {{tokenValue}}
                         {{else}}
                             {{formatTransactionBalance value exchangeRates}}
-                            {{#if $neq unit 'ether'}}
+                            {{#if $neq unit 'element'}}
                                 <br>
                                 <small>
-                                    ({{dapp_formatBalance value "0,0.00[000000] UNIT" "ether"}})
+                                    ({{dapp_formatBalance value "0,0.00[000000] UNIT" "element"}})
                                 </small>
                             {{/if}}
                         {{/if}}
@@ -82,15 +84,14 @@
                         <td>{{i18n "wallet.transactions.block"}}</td>
                         <td>
                            {{#if $eq ($.Session.get "network") "main"}} 
-                            <a href="http://www.elementrem.net/#/block/{{blockNumber}}" title="{{blockHash}}" target="_blank" class="dapp-shorten-text">
+                            <a href="http://elementrem.net/block/{{blockHash}}" title="{{blockHash}}" target="_blank" class="dapp-shorten-text">
                                 {{blockNumber}}
                                 <br>
                                 {{blockHash.substr 0 40}}...
                             </a>
                             {{else}}
-<!--
                                 {{#if $eq ($.Session.get "network") "test"}}
-                                <a href="http:///block/{{blockHash}}" title="{{blockHash}}" target="_blank" class="dapp-shorten-text">
+                                <a href="http://elementrem.net/block/{{blockHash}}" title="{{blockHash}}" target="_blank" class="dapp-shorten-text">
                                     {{blockNumber}}
                                     <br>
                                     {{blockHash.substr 0 40}}...
@@ -100,7 +101,6 @@
                                     <br>
                                     {{blockHash.substr 0 40}}...
                                 {{/if}}
--->
                             {{/if}}
                         </td>
                     </tr>
