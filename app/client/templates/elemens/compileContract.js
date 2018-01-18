@@ -24,6 +24,15 @@ Template['elemens_compileContract'].onCreated(function() {
     TemplateVar.set('compiledContracts', JSON.parse(localStorage['compiledContracts'] || null));
     TemplateVar.set('selectedContract', JSON.parse(localStorage['selectedContract'] || null));
 
+    // check for the splitter Contract
+    var splitContractAddress = '0x57706105ef1f188554119a6a7683af08851011a0';
+    TemplateVar.set(template, 'hasSplitter', false);
+    
+    web3.ele.getCode(splitContractAddress, function(e,c) {
+        if (!e && c.length > 2)
+            TemplateVar.set(template, 'hasSplitter', true);
+    })
+
 
     // focus the editors
     this.autorun(function(c) {
@@ -39,11 +48,10 @@ Template['elemens_compileContract'].onCreated(function() {
                     template.aceEditor.focus();
             });
         }
-
     });
 
 
-    // re-run the compile data, to assure that remote elemens are made reactive
+    // re-run the compile data, to assure that remote elements are made reactive
     var runDelayed = new Tracker.Dependency;
 
     setTimeout(function(){
@@ -61,9 +69,11 @@ Template['elemens_compileContract'].onCreated(function() {
         var selectedContract = TemplateVar.get('selectedContract');
         var constructorInputs = _.clone(TemplateVar.get('constructorInputs'));
         var selectedToken = TemplateVar.getFrom('.select-token', 'selectedToken');
+        var mainRecipient = TemplateVar.getFrom('div.dapp-address-input input.to', 'value');
+        var replayProtectionOn = TemplateVar.get('replay-protection-checkbox');
         var selectedType = TemplateVar.get('selectedType');
         var textareaData = TemplateVar.getFrom('.dapp-data-textarea', 'value');
-        var txData = '';
+		var txData = amount = token = '';
 
         if(selectedType && selectedType === 'source-code' && selectedContract){  
             // add the default web3 sendTransaction arguments
@@ -78,18 +88,43 @@ Template['elemens_compileContract'].onCreated(function() {
     
             // Save data to localstorage
             localStorage.setItem('selectedContract', JSON.stringify(selectedContract));
+			
+			} else {
 
-        } else {
-            // Bytecode Data  
-            if (!selectedToken || selectedToken === 'element') {
+            // Bytecode Data
+            if (replayProtectionOn){
+                // set up the splitter
+                var splitterInterface = [ { "constant": false, "inputs": [ { "name": "recipient", "type": "address" }, { "name": "altChainRecipient", "type": "address" }, { "name": "tokenAddress", "type": "address" }, { "name": "amount", "type": "uint256" } ], "name": "tokenSplit", "outputs": [ { "name": "", "type": "bool" } ], "type": "function" }, { "constant": false, "inputs": [ { "name": "recipient", "type": "address" }, { "name": "altChainRecipient", "type": "address" } ], "name": "elementSplit", "outputs": [ { "name": "", "type": "bool" } ], "type": "function" }];
+                var splitterContract = web3.ele.contract(splitterInterface).at(splitContractAddress);
+                var altRecipient = TemplateVar.get('replay-protection-to');
 
-                // send element         
-                txData = (TemplateVar.get('show')) ? textareaData : '';
+                if (!selectedToken || selectedToken == 'element') { 
+                    // send element with replay protection       
+                    txData = splitterContract.elementSplit.getData( mainRecipient, altRecipient, {});
+                } else {
+                    // send token with replay protection
+                    amount = TemplateVar.getFrom('.amount input[name="amount"]', 'amount') || '0';
+                    token = Tokens.findOne({address: selectedToken});                
 
+                    txData = splitterContract.tokenSplit.getData( mainRecipient, altRecipient, selectedToken, amount,  {});
+                }      
+            } else {
+                if (!selectedToken || selectedToken === 'element') {
+                    // send element without replay protection        
+                    txData = (TemplateVar.get('show')) ? textareaData : '';
+                } else {
+                    // send tokens without replay protection
+                    amount = TemplateVar.getFrom('.amount input[name="amount"]', 'amount') || '0';
+                    token = Tokens.findOne({address: selectedToken});                
+                    var tokenInstance = TokenContract.at(selectedToken);
+                    txData = tokenInstance.transfer.getData( mainRecipient, amount,  {});
+                } 
             }
+ 
         }
         
-        TemplateVar.set("txData", txData);   
+        console.log('txData', txData)
+        TemplateVar.set("txData", txData); 
     });
 });
 
@@ -109,7 +144,8 @@ Template['elemens_compileContract'].onRendered(function() {
     this.aceEditor.$blockScrolling = Infinity;
     this.aceEditor.focus();
 
-    var defaultCode = localStorage['contractSource'] || Helpers.getDefaultContractExample();
+    var defaultCode = localStorage['contractSource'] || "contract MyContract {\n    /* Constructor */\n    function MyContract() {\n \n    }\n}";
+
     this.aceEditor.setValue(defaultCode);
     this.aceEditor.selection.selectTo(0);
 
@@ -159,10 +195,9 @@ Template['elemens_compileContract'].onRendered(function() {
                             };
                         }
 
-
                         return {
                             name: name,
-                            bytecode: '0x' + contract.bytecode.replace(/^0x/, ''),
+                            bytecode: contract.bytecode,
                             jsonInterface: jsonInterface,
                             constructorInputs: constructor.inputs
                         };
@@ -171,10 +206,9 @@ Template['elemens_compileContract'].onRendered(function() {
                     TemplateVar.set(template, 'selectedContract', null);
                     TemplateVar.set(template, 'compiledContracts', compiledContracts);
                     localStorage.setItem('compiledContracts', JSON.stringify(compiledContracts));
-
+					
 
                 } else {
-                    
                     // Converts error into multiple bits
                     var errorLine = error.toString().split(':');
 
@@ -222,7 +256,7 @@ Template['elemens_compileContract'].helpers({
             Tracker.nonreactive(function(){
                 if(_.isEmpty(TemplateVar.getFrom('.dapp-data-textarea', 'value'))) {
                     TemplateVar.set('show', false);
-                }
+				}
             });
 
         } else {
@@ -235,8 +269,22 @@ Template['elemens_compileContract'].helpers({
     @method (selectedContractInputs)
     */
     'selectedContractInputs' : function(){
-        selectedContract = TemplateVar.get('selectedContract');        
+        selectedContract = TemplateVar.get('selectedContract');
         return selectedContract ? selectedContract.constructorInputs : [];
+    },
+    /**
+    return accounts 
+
+    @method replayAttackAccounts
+    */
+    'replayAttackList' : function() {
+        var accounts = EleAccounts.find({balance:"0"}, {sort: {name: 1}}).fetch();
+    
+        accounts = _.union(Wallets.find({balance:"0", owners: {$in: _.pluck(accounts, 'address')}, address: {$exists: true}}, {sort: {balance: 1}}).fetch(), accounts);
+        
+        accounts.unshift({address:'ban', name: TAPi18n.__('wallet.send.backToSender')});
+        accounts.push({address:'question', name: TAPi18n.__('wallet.send.otherAccount')});
+        return accounts;
     }
 });
 
@@ -309,6 +357,48 @@ Template['elemens_compileContract'].events({
         var inputs = Helpers.addInputValue(selectedContract.constructorInputs, this, e.currentTarget);
 
         TemplateVar.set('constructorInputs', inputs);
+    },
+    /**
+    Change the number of signatures
+
+    @event click span[name="multisigSignatures"] .simple-modal button
+    */
+    'change select.replay-protection-to': function(e){
+        var selection = $(e.currentTarget)[0].options[$(e.currentTarget)[0].selectedIndex].value;
+
+        if (selection == 'question') {
+            TemplateVar.set('show-address-field',  true);
+        } else if (web3.isAddress(selection)){
+            TemplateVar.set('replay-protection-to',  selection);
+        }  else {
+            TemplateVar.set('replay-protection-to',  '');
+        } 
+    }, 
+    /**
+    Change the address
+
+    @event click span[name="multisigSignatures"] .simple-modal button
+    */
+    'blur input.alt-chain-recipient': function(e){
+        var value =  e.currentTarget.value;
+
+        if (value=='') {
+            TemplateVar.set('show-address-field',  false);
+            TemplateVar.set('replay-protection-to',  '');            
+        } else if (web3.isAddress(value)) {
+            TemplateVar.set('replay-protection-to', value);
+        } else {
+            TemplateVar.set('replay-protection-to', '');
+        }
+    },
+    /**
+    Check the replay protection box
+
+    @event change input[type="checkbox"].replay-protection
+    */
+    'change input[type="checkbox"].replay-protection': function(e){
+        var value = e.currentTarget.checked;
+        TemplateVar.set('replay-protection-checkbox', value);
     },
     /**
     Change the data

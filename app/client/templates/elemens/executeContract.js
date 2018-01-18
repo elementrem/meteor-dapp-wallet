@@ -202,7 +202,7 @@ Template['elemens_executeContract_constant'].events({
 
     @event change .abi-input, input .abi-input
     */
-    'change .abi-input, input .abi-input, blur .abi-input': function(e, template) {
+    'change .abi-input, input .abi-input': function(e, template) {
         var inputs = Helpers.addInputValue(template.data.inputs, this, e.currentTarget);
         TemplateVar.set('inputs', inputs);
     }
@@ -241,9 +241,6 @@ Template['elemens_executeContract_function'].helpers({
     'reactiveDataContext': function(){
         if(this.inputs.length === 0)
             TemplateVar.set('executeData', this.contractInstance[this.name].getData());
-    }, 
-    'payable': function(){
-        return this && this.payable;
     }
 });
 
@@ -262,7 +259,7 @@ Template['elemens_executeContract_function'].events({
 
     @event change .abi-input, input .abi-input
     */
-    'change .abi-input, input .abi-input, blur .abi-input': function(e, template) {
+    'change .abi-input, input .abi-input': function(e, template) {
         var inputs = Helpers.addInputValue(template.data.inputs, this, e.currentTarget);
     
         TemplateVar.set('executeData', template.data.contractInstance[template.data.name].getData.apply(null, inputs));

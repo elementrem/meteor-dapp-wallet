@@ -1,13 +1,12 @@
 <template name="elemens_account_link">
-    {{#with getAccount}}
-        <span class="address dapp-shorten-text {{ensClass}}">
+    <span class="address dapp-shorten-text">
+        {{#with getAccount}}
             {{> dapp_identicon identity=address class="dapp-tiny"}} 
             {{#if name}}
-                <a href="{{pathFor route='account' address=address}}">{{displayName}}</a>
+                <a href="{{pathFor route='account' address=address}}">{{name}}</a>
             {{else}}
-                {{tryENS}}
                 <a href="{{pathFor route='sendTo' address=address}}" title="{{address}}">{{address}}</a>
             {{/if}}
-        </span>
-    {{/with}}
+        {{/with}}
+    </span>
 </template>
